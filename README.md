@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-The system consists of a browser extension designed to seamlessly integrate **Kueski Pay** into compatible online stores[cite: 2]. Through a floating widget, users can view payment options, simulate installments in real-time, and start the *checkout* process bypassing long forms, thus improving the shopping experience and reducing cart abandonment.
+The system consists of a browser extension designed to seamlessly integrate **Kueski Pay** into compatible online stores. Through a floating widget, users can view payment options, simulate installments in real-time, and start the *checkout* process bypassing long forms, thus improving the shopping experience and reducing cart abandonment.
 
 ## Main Features
 
