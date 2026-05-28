@@ -15,7 +15,7 @@ The system consists of a browser extension designed to seamlessly integrate **Ku
 ## Target Audience (Personas)
 
 The design and user stories focus primarily on two profiles:
-1. **The Analytical Buyer (Carlos Martinez, 38):** Looks for quick and accessible payments, hates long forms, and tends to abandon the *checkout* if it is tedious[cite: 2].
+1. **The Analytical Buyer (Carlos Martinez, 38):** Looks for quick and accessible payments, hates long forms, and tends to abandon the *checkout* if it is tedious.
 2. **The Flexible Buyer (Andrea Lopez, 24):** Seeks to manage her budget through transparent deferred payments, making quick purchases from mobile devices.
 
 ## Database Structure
