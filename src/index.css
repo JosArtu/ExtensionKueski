@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply m-0 min-h-screen bg-slate-100 font-sans text-slate-800 antialiased;
+  }
+
+  body.extension-popup {
+    @apply h-[600px] w-[400px] min-h-0 overflow-hidden bg-white;
+  }
+
+  body.extension-popup #root {
+    @apply h-full w-full;
+  }
+}
+
+@layer utilities {
+  .gradient-kueski {
+    @apply bg-gradient-to-br from-kueski-600 via-kueski-500 to-kueski-700;
+  }
+}

@@ -49,59 +49,76 @@ Full requirements: **[PRD.md](./PRD.md)**
 | Backend | Node.js, Express |
 | Database | PostgreSQL |
 
-## Project structure (planned)
+## Project structure
 
 ```
 ExtensionKueski/
 ├── PRD.md
 ├── README.md
-├── extension/                 # Chrome extension
-│   ├── manifest.json
-│   ├── popup/                 # React app (8 screens)
-│   │   └── src/
-│   │       ├── screens/
-│   │       ├── components/
-│   │       └── services/api.ts
-│   ├── content/               # Floating widget + DOM scrape
-│   └── background/
-└── server/                    # REST API
-    ├── src/
-    │   ├── routes/
-    │   ├── controllers/
-    │   └── db/
-    └── migrations/
+├── public/manifest.json       # Copied to dist/ on build
+├── popup.html                 # Extension popup entry
+├── dist/                      # Load this folder in Chrome
+├── src/
+│   ├── screens/
+│   ├── content/               # Amazon content script
+│   ├── background/            # MV3 service worker
+│   └── extension/             # Popup ↔ background bridge
+└── server/                    # REST API (planned)
 ```
 
 ## Getting started
 
-> Scaffolding not yet in repo — follow PRD Section 13 to bootstrap.
-
-### Prerequisites
-
-- Node.js 18+
-- PostgreSQL 14+
-- Chrome (for extension loading)
-
-### Backend (planned)
+### Chrome extension (load from `dist/`)
 
 ```bash
-cd server
 npm install
-cp .env.example .env    # DATABASE_URL, PORT, CORS_ORIGIN
-npm run migrate
-npm run seed
-npm run dev             # http://localhost:3000
+npm run build
 ```
 
-### Extension / popup (planned)
+After build, `dist/` contains everything Chrome needs:
+
+```
+dist/
+  manifest.json
+  popup.html
+  content.js
+  background.js
+  icons/
+  assets/
+```
+
+**Load in Google Chrome:**
+
+1. Open `chrome://extensions`
+2. Enable **Developer mode**
+3. Click **Load unpacked**
+4. Select the **`dist`** folder (not the project root)
+
+**Test on Amazon:**
+
+1. Open [amazon.com.mx](https://www.amazon.com.mx) (any product page works best)
+2. You should see a small **Kueski** banner on the page (dismissible)
+3. Click the extension icon → **Iniciar sesión** → enter the 6-digit verification code (shown in the popup for demo)
+4. The popup should open on **Amazon detectada** with the scraped product
+5. Continue: Oferta → Elegibilidad → Tarjeta → Confirmación
+
+| Flow | Steps |
+|------|--------|
+| **Happy path** | Login + 2FA → auto Amazon detection → Oferta → Elegibilidad → Tarjeta → Confirmación |
+| **No califica** | Dashboard → *Amazon producto $38,999* (manual fallback) → Elegibilidad denegada |
+
+### Web preview (development)
 
 ```bash
-cd extension/popup
-npm install
-npm run dev             # Dev server; load unpacked extension in Chrome
+npm run dev
 ```
 
-Configure the API base URL in extension env (e.g., `VITE_API_URL=http://localhost:3000/api`).
+Opens at `http://localhost:5173` for UI work without reloading the extension. Use dashboard buttons to simulate Amazon when not in Chrome.
+
+### Full stack (planned)
+
+- Node.js 18+, PostgreSQL 14+, Chrome for extension packaging
+- Backend: see PRD Section 13 (`server/` — not scaffolded yet)
 
 ## Database structure
 
