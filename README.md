@@ -1,42 +1,72 @@
-# Kueski Pay Extension - E-commerce Payment System
+# Kueski Account Integration App
 
-## Project Overview
+Chrome extension **UI mockup** (v1) for Kueski: link an account, see available credit while shopping, review promotions at compatible stores, and walk through financing with a temporary digital card — all inside a compact extension popup.
 
-The system consists of a browser extension designed to seamlessly integrate **Kueski Pay** into compatible online stores. Through a floating widget, users can view payment options, simulate installments in real-time, and start the *checkout* process bypassing long forms, thus improving the shopping experience and reducing cart abandonment.
+> **Note:** This repository is a **frontend-only prototype**. There is no backend, real authentication, or production Chrome extension packaging in v1.
 
-## Main Features
+## What it is
 
-* **Smart Floating Widget:** An interactive and adaptable widget that remains visible during navigation to facilitate quick access to Kueski Pay.
-* **Payment Simulation:** Automatic, real-time calculation of deferred payments, allowing the user to see estimated installments and dates without leaving the page.
-* **Checkout Integration:** Initiation and confirmation of payments directly from the widget, reducing friction and purchase steps.
-* **Widget Customization:** Users can minimize, move, and adjust the visual theme (light/dark) of the widget according to their preferences.
-* **Multisite Compatibility:** Works consistently across different e-commerce platforms and modern web browsers.
+A web app that simulates the popup experience of a Kueski browser extension (~360–400px wide), with eight screens and smooth transitions. It demonstrates the full financing journey from account link to checkout confirmation, using mock data and local screen state.
 
-## Target Audience (Personas)
+## Features (8 screens)
 
-The design and user stories focus primarily on two profiles:
-1. **The Analytical Buyer (Carlos Martinez, 38):** Looks for quick and accessible payments, hates long forms, and tends to abandon the *checkout* if it is tedious.
-2. **The Flexible Buyer (Andrea Lopez, 24):** Seeks to manage her budget through transparent deferred payments, making quick purchases from mobile devices.
+| # | Screen | Highlights |
+|---|--------|------------|
+| 1 | **Login / Link** | Sign in; link Kueski account |
+| 2 | **Dashboard** | Available credit ($15,000 mock), active promos, compatible stores, digital card status |
+| 3 | **Store detection** | Non-intrusive banner when visiting Amazon / AliExpress (simulated) |
+| 4 | **Active offer** | Short promo (e.g. 3 MSI), financeable amount, interest estimate, validity |
+| 5 | **Eligibility** | Purchase qualifies or not; available credit; payment conditions |
+| 6 | **Digital card** | Temporary virtual card with reveal animation |
+| 7 | **Confirmation** | Success state, transaction summary, next-promo suggestions |
+| 8 | **Preferences** | Notifications, alert intensity, privacy controls (UI mock) |
 
-## Database Structure
+## Design principles
 
-The relational model supports the system's operations through the following main tables:
-* **Usuario (User):** Stores identifiers, names, emails, and user types.
-* **Tienda (Store):** Registers e-commerce domains and their compatibility with Kueski.
-* **Producto (Product):** Saves the name, price, URL, and detection date of the items.
-* **Prestamo (Loan):** Links the user, store, and product with total amounts, remaining payments, and interest.
-* **Oferta (Offer):** Manages promotions, months without interest, and validity dates.
-* **Simulacion Pago (Payment Simulation):** Records payment estimates requested by users.
-* **Evento Uso (Usage Event):** Maintains traceability of interactions (e.g., *checkout* initiated, store validated).
-* **Preferencias Widget (Widget Preferences):** Saves the visual configuration (position, theme, minimized state) per user.
+- **Fintech trust:** Clean layout, restrained emerald/teal accents, strong readability
+- **Utility copy:** Short messages focused on status and next action — not marketing fluff
+- **User control:** Dismiss or ignore promotions; minimal friction and clicks
+- **Prominent credit:** Available line and financeable amounts are the visual focus
 
-## API Endpoints
+## Tech stack (planned)
 
-The system features a RESTful API for communication between the frontend (extension) and the backend:
+- React + TypeScript
+- Tailwind CSS
+- Motion (screen transitions, card reveal)
+- Local state for screen navigation
 
-* `GET /api/usuarios/{id}`: Retrieves information and balance of the logged-in user.
-* `POST /api/usuarios`: Creates a new user in the system.
-* `GET /api/prestamos/{id_usuario}`: Returns active loans, remaining payments, and cutoff dates.
-* `POST /api/prestamos`: Generates a new loan after a successful purchase.
-* `GET /api/ofertas`: Displays exclusive limited-time promotions.
-* `GET /api/tiendas`: Queries the list of stores compatible with the system.
+## Getting started
+
+Implementation is defined in [PRD.md](./PRD.md). Once the app scaffold exists:
+
+```bash
+npm install
+npm run dev
+```
+
+Open the dev URL and resize the viewport or use the built-in popup frame to preview extension dimensions.
+
+## Project structure (expected)
+
+```
+src/
+  components/     # Shared UI (buttons, cards, credit display)
+  screens/        # One folder per screen (1–8)
+  mock/           # Static credit, offers, store detection data
+  App.tsx         # Popup shell + screen router
+```
+
+## Documentation
+
+- **[PRD.md](./PRD.md)** — Full requirements, user flow, acceptance criteria, and out-of-scope items for v1
+
+## Usability & product goals
+
+- Readable, non-intrusive notifications
+- Clear available credit at a glance
+- Full mock financing flow: detect store → offer → eligibility → digital card → confirm
+- Preference management for alerts and privacy (UI only in v1)
+
+## License & context
+
+Academic / prototype project (TC2005B). Not affiliated with Kueski production systems unless explicitly stated by the course or sponsor.
