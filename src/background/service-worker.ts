@@ -1,3 +1,6 @@
+import type { AmazonSession } from "./messages";
+import type { ExtensionMessage, ExtensionResponse } from "./messages";
+
 const AMAZON_SESSION_KEY = "amazonSession";
 const COSTCO_SESSION_KEY = "costcoSession";
 const SESSION_TTL_MS = 30 * 60 * 1000;
@@ -30,8 +33,11 @@ async function setSession(key: string, session: StoredSession): Promise<void> {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     try {
+      console.log("[Service Worker] Message received:", message.type);
+      
       switch (message.type) {
         case "AMAZON_DETECTED": {
+          console.log("[Service Worker] Storing Amazon session:", message.product);
           await setSession(AMAZON_SESSION_KEY, {
             detected: true,
             product: message.product,
@@ -39,10 +45,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             hostname: message.hostname,
             at: Date.now(),
           });
+          console.log("[Service Worker] ✅ Amazon session stored");
           sendResponse({ ok: true });
           break;
         }
         case "COSTCO_DETECTED": {
+          console.log("[Service Worker] Storing Costco session:", message.product);
           await setSession(COSTCO_SESSION_KEY, {
             detected: true,
             product: message.product,
@@ -50,33 +58,40 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
             hostname: message.hostname,
             at: Date.now(),
           });
+          console.log("[Service Worker] ✅ Costco session stored");
           sendResponse({ ok: true });
           break;
         }
         case "GET_AMAZON_SESSION": {
           const session = await getSession(AMAZON_SESSION_KEY);
+          console.log("[Service Worker] GET_AMAZON_SESSION:", session);
           sendResponse({ ok: true, session });
           break;
         }
         case "GET_COSTCO_SESSION": {
           const session = await getSession(COSTCO_SESSION_KEY);
+          console.log("[Service Worker] GET_COSTCO_SESSION:", session);
           sendResponse({ ok: true, session });
           break;
         }
         case "CLEAR_AMAZON_SESSION": {
           await chrome.storage.local.remove(AMAZON_SESSION_KEY);
+          console.log("[Service Worker] Amazon session cleared");
           sendResponse({ ok: true });
           break;
         }
         case "CLEAR_COSTCO_SESSION": {
           await chrome.storage.local.remove(COSTCO_SESSION_KEY);
+          console.log("[Service Worker] Costco session cleared");
           sendResponse({ ok: true });
           break;
         }
         default:
+          console.warn("[Service Worker] Unknown message type:", message.type);
           sendResponse({ ok: false, error: "Unknown message type" });
       }
     } catch (e) {
+      console.error("[Service Worker] Error:", e);
       sendResponse({ ok: false, error: e instanceof Error ? e.message : "Background error" });
     }
   })();
