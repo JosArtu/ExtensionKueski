@@ -98,16 +98,22 @@ function pickAmazonPrice(): number | null {
 }
 
 export function isProductPage(): boolean {
-  // Amazon
+  const path = location.pathname;
+
+  // Amazon — URL patterns and product DOM markers
   if (
     !!document.querySelector("#productTitle") ||
     !!document.querySelector("h1#title") ||
-    /\/dp\//.test(location.pathname) ||
-    /\/gp\/product\//.test(location.pathname)
-  ) return true;
+    /\/dp\/[A-Z0-9]{10}/i.test(path) ||
+    /\/gp\/product\/[A-Z0-9]{10}/i.test(path) ||
+    /\/gp\/aw\/d\/[A-Z0-9]{10}/i.test(path) ||
+    !!document.querySelector("#ppd #add-to-cart-button, #addToCart, #buybox")
+  ) {
+    return true;
+  }
 
-  // Costco MX — product URLs end with /p/<itemNumber>
-  if (/\/p\/\d+/.test(location.pathname)) return true;
+  // Costco — product URLs end with /p/<itemNumber>
+  if (/\/p\/\d+/.test(path)) return true;
 
   return false;
 }

@@ -23,7 +23,7 @@ export function LoginScreen() {
     costcoVisitFromTab  // Para forzar redirección de Costco
   } = useApp();
   
-  const [correo, setCorreo] = useState("usuario@email.com");
+  const [correo, setCorreo] = useState("");
   const [codeInput, setCodeInput] = useState("");
 
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
@@ -33,7 +33,11 @@ export function LoginScreen() {
 
   // ─── Paso 1: validar correo en Supabase, luego solicitar OTP ─────────────
   const handleLogin = async () => {
-    const email = correo.trim() || "usuario@email.com";
+    const email = correo.trim();
+    if (!email) {
+      setEmailError("Ingresa tu correo electrónico.");
+      return;
+    }
     setEmailError(null);
     setIsCheckingEmail(true);
 
