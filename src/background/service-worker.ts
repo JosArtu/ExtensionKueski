@@ -1,6 +1,3 @@
-import type { AmazonSession } from "./messages";
-import type { ExtensionMessage, ExtensionResponse } from "./messages";
-
 const AMAZON_SESSION_KEY = "amazonSession";
 const COSTCO_SESSION_KEY = "costcoSession";
 const SESSION_TTL_MS = 30 * 60 * 1000;
