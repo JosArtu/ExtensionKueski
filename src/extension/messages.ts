@@ -17,8 +17,16 @@ export type ExtensionMessage =
       url: string;
       hostname: string;
     }
+  | {
+      type: "COSTCO_DETECTED";
+      product: AmazonProduct;
+      url: string;
+      hostname: string;
+    }
   | { type: "GET_AMAZON_SESSION" }
-  | { type: "CLEAR_AMAZON_SESSION" };
+  | { type: "CLEAR_AMAZON_SESSION" }
+  | { type: "GET_COSTCO_SESSION" }
+  | { type: "CLEAR_COSTCO_SESSION" };
 
 export type ExtensionResponse =
   | { ok: true; session: AmazonSession | null }

@@ -8,8 +8,11 @@ import {
 } from "react";
 import {
   AMAZON_PRODUCT,
+  ACTIVE_OFFER,
   createUser,
+  getActiveOfferForUser,
   HIGH_PRICE_PRODUCT,
+  updateUserCredit,
 } from "../mock/data";
 import { clearAmazonSession, isExtensionContext } from "../extension/session";
 import type {
@@ -19,6 +22,7 @@ import type {
   EligibilityStatus,
   Preferences,
   ScreenId,
+  UserProfile,
 } from "../types";
 
 const defaultPreferences: Preferences = {
@@ -31,10 +35,13 @@ const defaultPreferences: Preferences = {
 const initialState: AppState = {
   screen: "login",
   user: null,
+  pendingUser: null,
+  activeOffer: ACTIVE_OFFER,
   pendingCorreo: null,
   pendingVerificationCode: null,
   verificationError: null,
   amazonActive: false,
+  costcoActive: false,
   storeDetectionDismissed: false,
   offerDismissed: false,
   product: AMAZON_PRODUCT,
@@ -47,14 +54,14 @@ const initialState: AppState = {
   purchaseAmount: AMAZON_PRODUCT.precio,
 };
 
-function dashboardResetFields(state: AppState): Partial<AppState> {
+function dashboardResetFields(): Partial<AppState> {
   return {
-    user: createUser(state.pendingCorreo ?? undefined),
     screen: "dashboard",
     pendingCorreo: null,
     pendingVerificationCode: null,
     verificationError: null,
     amazonActive: false,
+    costcoActive: false,
     storeDetectionDismissed: false,
     offerDismissed: false,
     eligibility: "pending",
@@ -71,6 +78,10 @@ function reducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "NAVIGATE":
       return { ...state, screen: action.screen };
+    case "SET_ACTIVE_OFFER":
+      return { ...state, activeOffer: action.offer };
+    case "SET_PENDING_USER":
+      return { ...state, pendingUser: action.user };
     case "REQUEST_VERIFICATION":
       return {
         ...state,
@@ -82,16 +93,24 @@ function reducer(state: AppState, action: AppAction): AppState {
       if (action.code !== state.pendingVerificationCode) {
         return { ...state, verificationError: "Código incorrecto. Intenta de nuevo." };
       }
-      return { ...state, ...dashboardResetFields(state) };
+      return state;
+    case "LOGIN_SUCCESS":
+      return {
+        ...state,
+        ...dashboardResetFields(),
+        user: action.user,
+        screen: "dashboard",
+      };
     case "CANCEL_VERIFICATION":
       return {
         ...state,
+        pendingUser: null,
         pendingCorreo: null,
         pendingVerificationCode: null,
         verificationError: null,
       };
     case "LOGOUT":
-      return { ...initialState, preferences: state.preferences };
+      return { ...initialState, activeOffer: ACTIVE_OFFER, preferences: state.preferences };
     case "SIMULATE_AMAZON_VISIT":
       return {
         ...state,
@@ -126,6 +145,41 @@ function reducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         amazonActive: true,
+        storeDetectionDismissed: false,
+        offerDismissed: false,
+        screen: "storeDetection",
+        product: action.product,
+        purchaseAmount: amount,
+        eligibility: "pending",
+        simulation: null,
+        simulationViewed: false,
+        cardRevealed: false,
+        transaction: null,
+      };
+    }
+    case "SIMULATE_COSTCO_VISIT":
+      return {
+        ...state,
+        costcoActive: true,
+        amazonActive: false,
+        storeDetectionDismissed: false,
+        offerDismissed: false,
+        screen: "storeDetection",
+        product: AMAZON_PRODUCT,
+        purchaseAmount: AMAZON_PRODUCT.precio,
+        eligibility: "pending",
+        simulation: null,
+        simulationViewed: false,
+        cardRevealed: false,
+        transaction: null,
+      };
+    case "COSTCO_VISIT_FROM_TAB": {
+      const amount =
+        action.product.precio > 0 ? action.product.precio : AMAZON_PRODUCT.precio;
+      return {
+        ...state,
+        costcoActive: true,
+        amazonActive: false,
         storeDetectionDismissed: false,
         offerDismissed: false,
         screen: "storeDetection",
@@ -173,6 +227,12 @@ function reducer(state: AppState, action: AppAction): AppState {
     }
     case "SET_ELIGIBILITY":
       return { ...state, eligibility: action.status };
+    case "UPDATE_USER_CREDIT":
+      if (!state.user) return state;
+      return {
+        ...state,
+        user: { ...state.user, creditoDisponible: action.newCredit },
+      };
     case "REVEAL_CARD":
       return { ...state, cardRevealed: true };
     case "COMPLETE_CHECKOUT":
@@ -181,6 +241,7 @@ function reducer(state: AppState, action: AppAction): AppState {
         transaction: action.transaction,
         screen: "confirmation",
         amazonActive: false,
+        costcoActive: false,
       };
     case "UPDATE_PREFERENCES":
       return {
@@ -191,6 +252,7 @@ function reducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         amazonActive: false,
+        costcoActive: false,
         storeDetectionDismissed: false,
         offerDismissed: false,
         eligibility: "pending",
@@ -212,10 +274,13 @@ interface AppContextValue {
   requestVerification: (correo: string) => void;
   verifyCode: (code: string) => void;
   cancelVerification: () => void;
+  setPendingUser: (user: UserProfile) => void;
   logout: () => void;
   simulateAmazonVisit: () => void;
   simulateAmazonExpensive: () => void;
   amazonVisitFromTab: (product: AmazonProduct) => void;
+  simulateCostcoVisit: () => void;
+  costcoVisitFromTab: (product: AmazonProduct) => void;
   dismissStoreDetection: () => void;
   dismissOffer: () => void;
   runSimulation: (numPagos: number, pagoMensual: number, total: number) => void;
@@ -224,6 +289,7 @@ interface AppContextValue {
   revealCard: () => void;
   completeCheckout: () => void;
   updatePreferences: (prefs: Partial<Preferences>) => void;
+  updateUserCredit: (newCredit: number) => void;
   resetAmazonFlow: () => void;
   needsSimulation: boolean;
 }
@@ -248,7 +314,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const code = String(Math.floor(100000 + Math.random() * 900000));
         dispatch({ type: "REQUEST_VERIFICATION", correo, code });
       },
-      verifyCode: (code) => dispatch({ type: "VERIFY_CODE", code }),
+      verifyCode: (code) => {
+        if (code !== state.pendingVerificationCode) {
+          dispatch({ type: "VERIFY_CODE", code });
+          return;
+        }
+
+        // Usar el usuario ya validado contra Supabase; si por alguna razón no
+        // existe (flujo legacy), caemos al helper createUser como respaldo.
+        const loginAndLoadOffer = async (user: UserProfile) => {
+          dispatch({ type: "LOGIN_SUCCESS", user });
+          // Cargar la oferta correspondiente al tipo_usuario
+          const tipoUsuario = (user as UserProfile & { tipo_usuario?: string }).tipo_usuario ?? "standard";
+          const offer = await getActiveOfferForUser(tipoUsuario);
+          dispatch({ type: "SET_ACTIVE_OFFER", offer });
+        };
+
+        if (state.pendingUser) {
+          void loginAndLoadOffer(state.pendingUser);
+        } else {
+          const correo = state.pendingCorreo ?? "usuario@email.com";
+          void (async () => {
+            const user = await createUser(correo);
+            void loginAndLoadOffer(user);
+          })();
+        }
+      },
+      setPendingUser: (user) => dispatch({ type: "SET_PENDING_USER", user }),
       cancelVerification: () => dispatch({ type: "CANCEL_VERIFICATION" }),
       logout: () => dispatch({ type: "LOGOUT" }),
       simulateAmazonVisit: () => dispatch({ type: "SIMULATE_AMAZON_VISIT" }),
@@ -256,6 +348,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dispatch({ type: "SIMULATE_AMAZON_EXPENSIVE" }),
       amazonVisitFromTab: (product) =>
         dispatch({ type: "AMAZON_VISIT_FROM_TAB", product }),
+      simulateCostcoVisit: () => dispatch({ type: "SIMULATE_COSTCO_VISIT" }),
+      costcoVisitFromTab: (product) =>
+        dispatch({ type: "COSTCO_VISIT_FROM_TAB", product }),
       dismissStoreDetection: () => {
         dispatch({ type: "DISMISS_STORE_DETECTION" });
         if (isExtensionContext()) void clearAmazonSession();
@@ -280,7 +375,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           type: "COMPLETE_CHECKOUT",
           transaction: {
             monto: state.purchaseAmount,
-            comercio: "Amazon México",
+            comercio: state.costcoActive ? "Costco México" : "Amazon México",
             producto: state.product.nombre,
             plazo,
             fecha: new Date().toLocaleDateString("es-MX", {
@@ -294,6 +389,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
       updatePreferences: (preferences) =>
         dispatch({ type: "UPDATE_PREFERENCES", preferences }),
+      updateUserCredit: (newCredit) => {
+        dispatch({ type: "UPDATE_USER_CREDIT", newCredit });
+        if (state.user) {
+          void updateUserCredit(state.user.id, newCredit);
+        }
+      },
       resetAmazonFlow: () => {
         dispatch({ type: "RESET_AMAZON_FLOW" });
         if (isExtensionContext()) void clearAmazonSession();

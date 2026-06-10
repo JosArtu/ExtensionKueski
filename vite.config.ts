@@ -12,11 +12,13 @@ export default defineConfig(({ command }) => ({
       input: {
         popup: resolve(__dirname, "popup.html"),
         content: resolve(__dirname, "src/content/amazon.ts"),
+        costco: resolve(__dirname, "src/content/costco.ts"),
         background: resolve(__dirname, "src/background/service-worker.ts"),
       },
       output: {
         entryFileNames: (chunk) => {
           if (chunk.name === "content") return "content.js";
+          if (chunk.name === "costco") return "costco.js";
           if (chunk.name === "background") return "background.js";
           return "assets/[name]-[hash].js";
         },

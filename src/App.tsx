@@ -1,4 +1,5 @@
 import { AmazonBootstrap } from "./components/AmazonBootstrap";
+import { CostcoBootstrap } from "./components/CostcoBootstrap";
 import { FlowDevPanel } from "./components/layout/FlowDevPanel";
 import { isExtensionContext } from "./extension/session";
 import { PopupShell } from "./components/layout/PopupShell";
@@ -79,6 +80,7 @@ export default function App() {
   return (
     <AppProvider>
       <AmazonBootstrap />
+      <CostcoBootstrap />
       <ScreenRouter />
       {!isExtensionContext() && <FlowDevPanel />}
     </AppProvider>

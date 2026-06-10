@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { isSessionValid } from "../extension/messages";
-import { getAmazonSession, isExtensionContext } from "../extension/session";
+import { getCostcoSession, isExtensionContext } from "../extension/session";
 import { useApp } from "../context/AppContext";
 
-export function AmazonBootstrap() {
-  const { state, amazonVisitFromTab } = useApp();
+export function CostcoBootstrap() {
+  const { state, costcoVisitFromTab } = useApp();
   const lastAppliedAt = useRef(0);
 
   useEffect(() => {
@@ -14,18 +14,18 @@ export function AmazonBootstrap() {
     if (state.screen !== "login" && state.screen !== "dashboard") return;
 
     void (async () => {
-      const session = await getAmazonSession();
-      if (!isSessionValid(session) || !session) return; 
+      const session = await getCostcoSession();
+      if (!isSessionValid(session) || !session) return;
       if (session.at <= lastAppliedAt.current) return;
       lastAppliedAt.current = session.at;
-      amazonVisitFromTab(session.product);
+      costcoVisitFromTab(session.product);
     })();
   }, [
     state.user,
     state.preferences.notificaciones,
     state.storeDetectionDismissed,
     state.screen,
-    amazonVisitFromTab,
+    costcoVisitFromTab,
   ]);
 
   return null;

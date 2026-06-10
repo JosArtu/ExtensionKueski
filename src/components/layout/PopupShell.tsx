@@ -102,7 +102,7 @@ export function PopupShell({
         {shell}
         {state.user && (
           <p className="mt-2 text-center text-[11px] text-slate-400">
-            Sesión: {state.user.nombre} {state.user.apellidos}
+            Sesión: {state.user.id}
           </p>
         )}
       </div>

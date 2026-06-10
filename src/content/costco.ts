@@ -1,14 +1,15 @@
-import { isAmazonHost } from "./amazon-host";
+import { isCostcoHost } from "./costco-host";
 import { scrapeAmazonProduct, isProductPage } from "./scrape";
 
-const BANNER_ID = "kueski-amazon-banner";
+const BANNER_ID = "kueski-costco-banner";
 
 let lastUrl = "";
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let domObserver: MutationObserver | null = null;
 let tornDown = false;
 
-/** Chrome throws when extension was reloaded but this tab still has the old content script. */
+console.log("[Kueski Costco] 🚀 Script loaded on", location.hostname, location.pathname);
+
 function isExtensionContextValid(): boolean {
   try {
     return typeof chrome !== "undefined" && !!chrome.runtime?.id;
@@ -27,33 +28,44 @@ function teardownContentScript() {
 }
 
 function reportDetection() {
-  if (!isAmazonHost(location.hostname)) return;
+  console.log("[Kueski Costco] reportDetection() called");
+  console.log("[Kueski Costco] isCostcoHost:", isCostcoHost(location.hostname));
+  console.log("[Kueski Costco] isExtensionContextValid:", isExtensionContextValid());
 
+  if (!isCostcoHost(location.hostname)) {
+    console.warn("[Kueski Costco] ❌ Host not recognized:", location.hostname);
+    return;
+  }
   if (!isExtensionContextValid()) {
     teardownContentScript();
     return;
   }
 
   const product = scrapeAmazonProduct();
+  console.log("[Kueski Costco] 🛒 Scraped product:", product);
+
   try {
     chrome.runtime.sendMessage(
       {
-        type: "AMAZON_DETECTED",
+        type: "COSTCO_DETECTED",
         product,
         url: location.href,
         hostname: location.hostname,
       },
-      () => {
+      (response) => {
         const err = chrome.runtime.lastError;
-        if (
-          err &&
-          (err.message?.includes("invalidated") || err.message?.includes("Invalid"))
-        ) {
-          teardownContentScript();
+        if (err) {
+          console.warn("[Kueski Costco] sendMessage error:", err.message);
+          if (err.message?.includes("invalidated") || err.message?.includes("Invalid")) {
+            teardownContentScript();
+          }
+        } else {
+          console.log("[Kueski Costco] ✅ Message sent, response:", response);
         }
       }
     );
-  } catch {
+  } catch (e) {
+    console.error("[Kueski Costco] sendMessage threw:", e);
     teardownContentScript();
   }
 }
@@ -75,8 +87,15 @@ function scheduleDetection() {
 }
 
 function showBanner() {
-  if (document.getElementById(BANNER_ID)) return;
-  if (sessionStorage.getItem("kueski-banner-dismissed") === "1") return;
+  console.log("[Kueski Costco] showBanner() called");
+  if (document.getElementById(BANNER_ID)) {
+    console.log("[Kueski Costco] Banner already exists, skipping");
+    return;
+  }
+  if (sessionStorage.getItem("kueski-costco-banner-dismissed") === "1") {
+    console.log("[Kueski Costco] Banner dismissed, skipping");
+    return;
+  }
 
   const iconUrl = chrome.runtime.getURL("icons/icon48.png");
   const banner = document.createElement("div");
@@ -108,37 +127,40 @@ function showBanner() {
       <div style="display:flex;align-items:flex-start;gap:10px;">
         <img src="${iconUrl}" width="36" height="36" style="border-radius:8px;flex-shrink:0;background:rgba(255,255,255,.15);" />
         <div style="flex:1;min-width:0;">
-          <p style="margin:0;font-weight:700;color:#fff;font-size:13px;">Beneficios disponibles en Amazon</p>
+          <p style="margin:0;font-weight:700;color:#fff;font-size:13px;">Beneficios disponibles en Costco</p>
           <p style="margin:4px 0 0;color:rgba(255,255,255,.85);font-size:12px;">Financia tu compra con 3 meses sin intereses</p>
         </div>
-        <button type="button" id="kueski-banner-close" aria-label="Cerrar" style="flex-shrink:0;background:rgba(255,255,255,.2);border:none;color:#fff;width:22px;height:22px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button>
+        <button type="button" id="kueski-costco-banner-close" aria-label="Cerrar" style="flex-shrink:0;background:rgba(255,255,255,.2);border:none;color:#fff;width:22px;height:22px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button>
       </div>
       <p style="margin:10px 0 0;font-size:12px;color:rgba(255,255,255,.8);">Abre la extensión Kueski Pay para ver tu oferta.</p>
     </div>
   `;
 
   document.body.appendChild(banner);
-  // Trigger animation on next frame
   requestAnimationFrame(() => {
     banner.style.opacity = "1";
     banner.style.transform = "translateX(0)";
   });
-  document.getElementById("kueski-banner-close")?.addEventListener("click", () => {
-    sessionStorage.setItem("kueski-banner-dismissed", "1");
+  document.getElementById("kueski-costco-banner-close")?.addEventListener("click", () => {
+    sessionStorage.setItem("kueski-costco-banner-dismissed", "1");
     banner.remove();
   });
 }
 
-
-
 function init() {
-  if (!isAmazonHost(location.hostname)) return;
+  console.log("[Kueski Costco] init() called, hostname:", location.hostname);
 
+  if (!isCostcoHost(location.hostname)) {
+    console.warn("[Kueski Costco] ❌ Not a Costco host, aborting. hostname:", location.hostname);
+    return;
+  }
   if (!isExtensionContextValid()) {
+    console.warn("[Kueski Costco] ❌ Extension context invalid");
     teardownContentScript();
     return;
   }
 
+  console.log("[Kueski Costco] ✅ Initializing on", location.href);
   lastUrl = location.href;
   reportDetection();
   if (isProductPage()) showBanner();

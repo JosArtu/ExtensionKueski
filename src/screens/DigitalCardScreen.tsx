@@ -5,7 +5,7 @@ import { useApp } from "../context/AppContext";
 import { CARD_MOCK } from "../mock/data";
 
 export function DigitalCardScreen() {
-  const { state, revealCard, completeCheckout, navigate } = useApp();
+  const { state, revealCard, completeCheckout, navigate, updateUserCredit } = useApp();
   const [localRevealed, setLocalRevealed] = useState(state.cardRevealed);
 
   const revealed = localRevealed || state.cardRevealed;
@@ -13,6 +13,12 @@ export function DigitalCardScreen() {
   const handleReveal = () => {
     setLocalRevealed(true);
     revealCard();
+  };
+
+  const handleConfirmCheckout = () => {
+    const remaining = state.user!.creditoDisponible - state.purchaseAmount;
+    updateUserCredit(remaining);
+    completeCheckout();
   };
 
   return (
@@ -70,7 +76,7 @@ export function DigitalCardScreen() {
           <p className="text-center text-xs text-slate-500">
             Copia los datos en el método de pago de Amazon.
           </p>
-          <Button fullWidth onClick={completeCheckout}>
+          <Button fullWidth onClick={handleConfirmCheckout}>
             Confirmar uso en checkout
           </Button>
         </>

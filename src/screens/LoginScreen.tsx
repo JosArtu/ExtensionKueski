@@ -1,21 +1,68 @@
 import { useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { useApp } from "../context/AppContext";
 
+// ─── Supabase client (misma instancia que data.ts) ────────────────────────────
+const supabase = createClient(
+  "https://ydldbyqxcznrgrroxxdl.supabase.co",
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "sb_publishable_JFGwgPM0uok9ix9vZGmEoA_FaImHo4u"
+);
+
 export function LoginScreen() {
-  const { state, requestVerification, verifyCode, cancelVerification } = useApp();
+  const { state, requestVerification, verifyCode, cancelVerification, setPendingUser } = useApp();
   const [correo, setCorreo] = useState("usuario@email.com");
   const [codeInput, setCodeInput] = useState("");
 
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
   const onVerifyStep = state.pendingVerificationCode != null;
 
-  const handleLogin = () => {
+  // ─── Paso 1: validar correo en Supabase, luego solicitar OTP ─────────────
+  const handleLogin = async () => {
     const email = correo.trim() || "usuario@email.com";
-    requestVerification(email);
-    setCodeInput("");
+    setEmailError(null);
+    setIsCheckingEmail(true);
+
+    try {
+      const { data, error } = await supabase
+        .from("usuario")
+        .select("id_usuario, nombre, apellidos, correo, limite_de_credito, tipo_usuario")
+        .ilike("correo", email)
+        .limit(1);
+
+      if (error) {
+        console.error("❌ Error consultando usuario:", error.message);
+        setEmailError("No pudimos verificar tu correo. Intenta de nuevo.");
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setEmailError("No encontramos una cuenta con ese correo. Verifica e intenta de nuevo.");
+        return;
+      }
+
+      // Correo válido → guardamos el usuario en el contexto antes del OTP
+      const u = data[0];
+      setPendingUser({
+        id: String(u.id_usuario),
+        nombre: u.nombre,
+        apellidos: u.apellidos,
+        correo: u.correo,
+        creditoDisponible: u.limite_de_credito,
+        tipo_usuario: u.tipo_usuario ?? "standard",
+      });
+
+      requestVerification(email);
+      setCodeInput("");
+    } finally {
+      setIsCheckingEmail(false);
+    }
   };
 
+  // ─── Paso 2: verificar el código OTP ─────────────────────────────────────
   const handleVerify = () => {
     verifyCode(codeInput.trim());
   };
@@ -23,8 +70,10 @@ export function LoginScreen() {
   const handleBack = () => {
     cancelVerification();
     setCodeInput("");
+    setEmailError(null);
   };
 
+  // ─── Vista: ingreso de código ─────────────────────────────────────────────
   if (onVerifyStep) {
     return (
       <div className="space-y-4">
@@ -74,6 +123,7 @@ export function LoginScreen() {
     );
   }
 
+  // ─── Vista: ingreso de correo ─────────────────────────────────────────────
   return (
     <div className="space-y-4">
       <div>
@@ -91,14 +141,24 @@ export function LoginScreen() {
           id="login-email"
           type="email"
           value={correo}
-          onChange={(e) => setCorreo(e.target.value)}
+          onChange={(e) => {
+            setCorreo(e.target.value);
+            if (emailError) setEmailError(null);
+          }}
           placeholder="tu@email.com"
-          className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-kueski-500 focus:ring-2 focus:ring-kueski-200"
+          className={`mt-1 w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors
+            ${emailError
+              ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100"
+              : "border-slate-200 focus:border-kueski-500 focus:ring-2 focus:ring-kueski-200"
+            }`}
         />
+        {emailError && (
+          <p className="mt-2 text-xs text-red-600">{emailError}</p>
+        )}
       </div>
 
-      <Button fullWidth onClick={handleLogin}>
-        Iniciar sesión
+      <Button fullWidth onClick={handleLogin} disabled={isCheckingEmail}>
+        {isCheckingEmail ? "Verificando..." : "Iniciar sesión"}
       </Button>
 
       <p className="text-center text-[11px] text-slate-400">

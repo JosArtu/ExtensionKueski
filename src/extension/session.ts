@@ -36,3 +36,13 @@ export async function getAmazonSession(): Promise<AmazonSession | null> {
 export async function clearAmazonSession(): Promise<void> {
   await sendExtensionMessage({ type: "CLEAR_AMAZON_SESSION" });
 }
+
+export async function getCostcoSession(): Promise<AmazonSession | null> {
+  const res = await sendExtensionMessage({ type: "GET_COSTCO_SESSION" });
+  if (res.ok && "session" in res) return res.session;
+  return null;
+}
+
+export async function clearCostcoSession(): Promise<void> {
+  await sendExtensionMessage({ type: "CLEAR_COSTCO_SESSION" });
+}

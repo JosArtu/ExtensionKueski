@@ -1,11 +1,13 @@
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { useApp } from "../context/AppContext";
-import { ACTIVE_OFFER, AMAZON_STORE, formatMXN } from "../mock/data";
+import { AMAZON_STORE, formatMXN } from "../mock/data";
 
 export function ActiveOfferScreen() {
   const { state, navigate, dismissOffer, needsSimulation, checkEligibility } =
     useApp();
+
+  const activeOffer = state.activeOffer;
 
   const goNext = () => {
     if (needsSimulation) {
@@ -19,9 +21,11 @@ export function ActiveOfferScreen() {
     <div className="space-y-4">
       <div className="rounded-2xl gradient-kueski p-4 text-white">
         <p className="text-xs opacity-90">{AMAZON_STORE.nombre}</p>
-        <h1 className="text-xl font-bold">{ACTIVE_OFFER.titulo}</h1>
+        <h1 className="text-xl font-bold">
+          Hasta {activeOffer.mesesSinInteres} meses sin intereses
+        </h1>
         <p className="mt-1 text-sm opacity-90">
-          En compras hasta {formatMXN(ACTIVE_OFFER.montoFinanciableMax)}
+          En compras hasta {formatMXN(activeOffer.montoFinanciableMax)}
         </p>
       </div>
 
@@ -36,13 +40,13 @@ export function ActiveOfferScreen() {
           <div className="flex justify-between">
             <dt className="text-slate-500">Interés estimado</dt>
             <dd className="font-semibold text-kueski-700">
-              {ACTIVE_OFFER.tasaInteres}% (promo MSI)
+              {activeOffer.tasaInteres}% (promo MSI)
             </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-slate-500">Vigencia</dt>
             <dd className="font-medium text-slate-800">
-              Hasta {ACTIVE_OFFER.validoHasta}
+              Hasta {activeOffer.validoHasta}
             </dd>
           </div>
         </dl>

@@ -1,96 +1,84 @@
-const STORAGE_KEY = "amazonSession";
+const AMAZON_SESSION_KEY = "amazonSession";
+const COSTCO_SESSION_KEY = "costcoSession";
 const SESSION_TTL_MS = 30 * 60 * 1000;
 
-interface AmazonProduct {
-  nombre: string;
-  precio: number;
-  url: string;
-}
-
-interface AmazonSession {
+interface StoredSession {
   detected: boolean;
-  product: AmazonProduct;
+  product: { nombre: string; precio: number; url: string };
   url: string;
   hostname: string;
   at: number;
 }
 
-type ExtensionMessage =
-  | {
-      type: "AMAZON_DETECTED";
-      product: AmazonProduct;
-      url: string;
-      hostname: string;
-    }
-  | { type: "GET_AMAZON_SESSION" }
-  | { type: "CLEAR_AMAZON_SESSION" };
-
-type ExtensionResponse =
-  | { ok: true; session: AmazonSession | null }
-  | { ok: true }
-  | { ok: false; error: string };
-
-function isSessionValid(session: AmazonSession | null | undefined): boolean {
+function isSessionValid(session: StoredSession | null | undefined): boolean {
   if (!session?.detected) return false;
   return Date.now() - session.at < SESSION_TTL_MS;
 }
 
-async function getStoredSession(): Promise<AmazonSession | null> {
-  const data = await chrome.storage.local.get(STORAGE_KEY);
-  const session = data[STORAGE_KEY] as AmazonSession | undefined;
-  if (!isSessionValid(session)) {
-    if (session) await chrome.storage.local.remove(STORAGE_KEY);
-    return null;
-  }
-  return session ?? null;
+async function getSession(key: string): Promise<StoredSession | null> {
+  const data = await chrome.storage.local.get(key);
+  const session = data[key] as StoredSession | undefined;
+  if (isSessionValid(session)) return session ?? null;
+  if (session) await chrome.storage.local.remove(key);
+  return null;
 }
 
-async function saveSession(session: AmazonSession): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEY]: session });
+async function setSession(key: string, session: StoredSession): Promise<void> {
+  await chrome.storage.local.set({ [key]: session });
 }
 
-chrome.runtime.onMessage.addListener(
-  (
-    message: ExtensionMessage,
-    _sender,
-    sendResponse: (response: ExtensionResponse) => void
-  ) => {
-    (async () => {
-      try {
-        if (message.type === "AMAZON_DETECTED") {
-          const session: AmazonSession = {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  (async () => {
+    try {
+      switch (message.type) {
+        case "AMAZON_DETECTED": {
+          await setSession(AMAZON_SESSION_KEY, {
             detected: true,
             product: message.product,
             url: message.url,
             hostname: message.hostname,
             at: Date.now(),
-          };
-          await saveSession(session);
+          });
           sendResponse({ ok: true });
-          return;
+          break;
         }
-
-        if (message.type === "GET_AMAZON_SESSION") {
-          const session = await getStoredSession();
+        case "COSTCO_DETECTED": {
+          await setSession(COSTCO_SESSION_KEY, {
+            detected: true,
+            product: message.product,
+            url: message.url,
+            hostname: message.hostname,
+            at: Date.now(),
+          });
+          sendResponse({ ok: true });
+          break;
+        }
+        case "GET_AMAZON_SESSION": {
+          const session = await getSession(AMAZON_SESSION_KEY);
           sendResponse({ ok: true, session });
-          return;
+          break;
         }
-
-        if (message.type === "CLEAR_AMAZON_SESSION") {
-          await chrome.storage.local.remove(STORAGE_KEY);
+        case "GET_COSTCO_SESSION": {
+          const session = await getSession(COSTCO_SESSION_KEY);
+          sendResponse({ ok: true, session });
+          break;
+        }
+        case "CLEAR_AMAZON_SESSION": {
+          await chrome.storage.local.remove(AMAZON_SESSION_KEY);
           sendResponse({ ok: true });
-          return;
+          break;
         }
-
-        sendResponse({ ok: false, error: "Unknown message type" });
-      } catch (e) {
-        sendResponse({
-          ok: false,
-          error: e instanceof Error ? e.message : "Background error",
-        });
+        case "CLEAR_COSTCO_SESSION": {
+          await chrome.storage.local.remove(COSTCO_SESSION_KEY);
+          sendResponse({ ok: true });
+          break;
+        }
+        default:
+          sendResponse({ ok: false, error: "Unknown message type" });
       }
-    })();
-
-    return true;
-  }
-);
+    } catch (e) {
+      sendResponse({ ok: false, error: e instanceof Error ? e.message : "Background error" });
+    }
+  })();
+  return true; // keep channel open for async response
+});

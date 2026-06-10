@@ -2,13 +2,15 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { CreditAmount } from "../components/ui/CreditAmount";
 import { useApp } from "../context/AppContext";
-import { ACTIVE_OFFER, formatMXN } from "../mock/data";
+import { formatMXN } from "../mock/data";
 
 export function EligibilityScreen() {
-  const { state, navigate, checkEligibility } = useApp();
+  const { state, navigate, checkEligibility, completeCheckout, updateUserCredit } = useApp();
   const user = state.user!;
   const notQualified = state.eligibility === "not_qualified";
   const pending = state.eligibility === "pending";
+
+  const storeName = state.costcoActive ? "Costco" : "Amazon";
 
   if (pending) {
     return (
@@ -46,7 +48,7 @@ export function EligibilityScreen() {
         </div>
         <Card>
           <p className="text-sm text-slate-600">
-            Prueba un producto de menor precio en Amazon o espera a liberar línea de crédito.
+            Prueba un producto de menor precio en {storeName} o espera a liberar línea de crédito.
           </p>
         </Card>
         <Button fullWidth onClick={() => navigate("dashboard")}>
@@ -63,6 +65,20 @@ export function EligibilityScreen() {
     );
   }
 
+  // qualified
+  const remainingCredit = user.creditoDisponible - state.purchaseAmount;
+
+  // Amazon: skip digital card, confirm directly
+  // Costco: go through digital card flow
+  const handleConfirm = () => {
+    if (state.amazonActive) {
+      updateUserCredit(user.creditoDisponible - state.purchaseAmount);
+      completeCheckout();
+    } else {
+      navigate("digitalCard");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-kueski-200 bg-kueski-50 p-4 text-center">
@@ -71,7 +87,7 @@ export function EligibilityScreen() {
           Compra elegible
         </h1>
         <p className="mt-1 text-sm text-kueski-800">
-          Puedes financiar esta compra en Amazon con Kueski.
+          Puedes financiar esta compra en {storeName} con Kueski.
         </p>
       </div>
 
@@ -85,21 +101,21 @@ export function EligibilityScreen() {
             <dt className="text-slate-500">Condiciones</dt>
             <dd className="font-medium text-kueski-800">
               {state.simulation
-                ? `${state.simulation.numPagos} pagos de ${formatMXN(state.simulation.pagoMensual)}`
-                : ACTIVE_OFFER.titulo}
+                ? `${state.simulation.numPagos} meses sin intereses · ${formatMXN(state.simulation.pagoMensual)}/mes`
+                : `${state.activeOffer.mesesSinInteres} meses sin intereses`}
             </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-slate-500">Crédito restante</dt>
-            <dd className="font-semibold">
-              {formatMXN(user.creditoDisponible - state.purchaseAmount)}
+            <dd className="font-semibold text-kueski-700">
+              {formatMXN(remainingCredit)}
             </dd>
           </div>
         </dl>
       </Card>
 
-      <Button fullWidth onClick={() => navigate("digitalCard")}>
-        Obtener tarjeta digital
+      <Button fullWidth onClick={handleConfirm}>
+        {state.amazonActive ? "Confirmar compra" : "Obtener tarjeta digital"}
       </Button>
     </div>
   );

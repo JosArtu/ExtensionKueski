@@ -19,12 +19,22 @@ export interface UserProfile {
   apellidos: string;
   correo: string;
   creditoDisponible: number;
+  tipo_usuario?: string;
 }
 
 export interface AmazonProduct {
   nombre: string;
   precio: number;
   url: string;
+}
+
+export interface Offer {
+  titulo: string;
+  mesesSinInteres: number;
+  tasaInteres: number;
+  tasaEstimadaConInteres: number;
+  montoFinanciableMax: number;
+  validoHasta: string;
 }
 
 export interface Preferences {
@@ -55,6 +65,7 @@ export interface AppState {
   pendingVerificationCode: string | null;
   verificationError: string | null;
   amazonActive: boolean;
+  costcoActive: boolean;
   storeDetectionDismissed: boolean;
   offerDismissed: boolean;
   product: AmazonProduct;
@@ -65,17 +76,22 @@ export interface AppState {
   transaction: Transaction | null;
   preferences: Preferences;
   purchaseAmount: number;
+  pendingUser: UserProfile | null;
+  activeOffer: Offer;
 }
 
 export type AppAction =
   | { type: "NAVIGATE"; screen: ScreenId }
   | { type: "REQUEST_VERIFICATION"; correo: string; code: string }
   | { type: "VERIFY_CODE"; code: string }
+  | { type: "LOGIN_SUCCESS"; user: UserProfile }
   | { type: "CANCEL_VERIFICATION" }
   | { type: "LOGOUT" }
   | { type: "SIMULATE_AMAZON_VISIT" }
   | { type: "SIMULATE_AMAZON_EXPENSIVE" }
   | { type: "AMAZON_VISIT_FROM_TAB"; product: AmazonProduct }
+  | { type: "SIMULATE_COSTCO_VISIT" }
+  | { type: "COSTCO_VISIT_FROM_TAB"; product: AmazonProduct }
   | { type: "DISMISS_STORE_DETECTION" }
   | { type: "DISMISS_OFFER" }
   | { type: "SET_PURCHASE_AMOUNT"; amount: number }
@@ -90,4 +106,7 @@ export type AppAction =
   | { type: "REVEAL_CARD" }
   | { type: "COMPLETE_CHECKOUT"; transaction: Transaction }
   | { type: "UPDATE_PREFERENCES"; preferences: Partial<Preferences> }
-  | { type: "RESET_AMAZON_FLOW" };
+  | { type: "RESET_AMAZON_FLOW" }
+  | { type: "SET_PENDING_USER"; user: UserProfile }
+  | { type: "UPDATE_USER_CREDIT"; newCredit: number }
+  | { type: "SET_ACTIVE_OFFER"; offer: Offer };
