@@ -115,6 +115,7 @@ function reducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         amazonActive: true,
+        costcoActive: false,
         storeDetectionDismissed: false,
         offerDismissed: false,
         screen: "storeDetection",
@@ -130,6 +131,7 @@ function reducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         amazonActive: true,
+        costcoActive: false,
         storeDetectionDismissed: false,
         offerDismissed: false,
         screen: "storeDetection",
@@ -142,9 +144,13 @@ function reducer(state: AppState, action: AppAction): AppState {
     case "AMAZON_VISIT_FROM_TAB": {
       const amount =
         action.product.precio > 0 ? action.product.precio : AMAZON_PRODUCT.precio;
+      // #region agent log
+      fetch('http://127.0.0.1:7886/ingest/5ef5ffa8-2bf4-4ad7-84e0-911796d4af42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d50a65'},body:JSON.stringify({sessionId:'d50a65',runId:'post-fix',location:'AppContext.tsx:AMAZON_VISIT_FROM_TAB',message:'reducer apply',data:{before:{amazonActive:state.amazonActive,costcoActive:state.costcoActive},after:{amazonActive:true,costcoActive:false},productNombre:action.product.nombre},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       return {
         ...state,
         amazonActive: true,
+        costcoActive: false,
         storeDetectionDismissed: false,
         offerDismissed: false,
         screen: "storeDetection",
@@ -176,6 +182,9 @@ function reducer(state: AppState, action: AppAction): AppState {
     case "COSTCO_VISIT_FROM_TAB": {
       const amount =
         action.product.precio > 0 ? action.product.precio : AMAZON_PRODUCT.precio;
+      // #region agent log
+      fetch('http://127.0.0.1:7886/ingest/5ef5ffa8-2bf4-4ad7-84e0-911796d4af42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d50a65'},body:JSON.stringify({sessionId:'d50a65',location:'AppContext.tsx:COSTCO_VISIT_FROM_TAB',message:'reducer before',data:{amazonActive:state.amazonActive,costcoActive:state.costcoActive,screen:state.screen,productNombre:action.product.nombre},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       return {
         ...state,
         costcoActive: true,

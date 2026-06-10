@@ -15,6 +15,9 @@ export function AmazonBootstrap() {
 
     void (async () => {
       const session = await getAmazonSession();
+      // #region agent log
+      fetch('http://127.0.0.1:7886/ingest/5ef5ffa8-2bf4-4ad7-84e0-911796d4af42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d50a65'},body:JSON.stringify({sessionId:'d50a65',location:'AmazonBootstrap.tsx:effect',message:'amazon session check',data:{hasSession:!!session,sessionAt:session?.at,lastAppliedAt:lastAppliedAt.current,screen:state.screen,willApply:!!(session&&isSessionValid(session)&&session.at>lastAppliedAt.current)},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       if (!isSessionValid(session) || !session) return; 
       if (session.at <= lastAppliedAt.current) return;
       lastAppliedAt.current = session.at;
