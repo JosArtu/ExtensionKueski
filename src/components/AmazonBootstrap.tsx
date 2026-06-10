@@ -11,6 +11,7 @@ export function AmazonBootstrap() {
     if (!isExtensionContext()) return;
     if (!state.user || !state.preferences.notificaciones) return;
     if (state.storeDetectionDismissed) return;
+    if (state.screen !== "login" && state.screen !== "dashboard") return;
 
     void (async () => {
       const session = await getAmazonSession();
@@ -23,6 +24,7 @@ export function AmazonBootstrap() {
     state.user,
     state.preferences.notificaciones,
     state.storeDetectionDismissed,
+    state.screen,
     amazonVisitFromTab,
   ]);
 
