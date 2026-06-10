@@ -1,10 +1,15 @@
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { useApp } from "../context/AppContext";
-import { formatMXN, NEXT_PROMO_SUGGESTION } from "../mock/data";
+import { formatMXN } from "../mock/data";
+
+// Added the SuccessIcon component helper that was referenced in your snippet
+function SuccessIcon() {
+  return <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-kueski-100 text-2xl text-kueski-600">✓</div>;
+}
 
 export function ConfirmationScreen() {
-  const { state, navigate, resetAmazonFlow } = useApp();
+  const { state, resetAmazonFlow } = useApp();
   const tx = state.transaction!;
 
   return (
@@ -15,7 +20,7 @@ export function ConfirmationScreen() {
           Financiamiento confirmado
         </h1>
         <p className="mt-1 text-sm text-slate-600">
-          Tu compra en Amazon quedó registrada.
+          Tu compra en {tx.comercio} quedó registrada.
         </p>
       </div>
 
@@ -46,33 +51,9 @@ export function ConfirmationScreen() {
         </p>
       </Card>
 
-      <Card className="border-dashed border-kueski-300 bg-kueski-50/30">
-        <p className="text-xs font-medium text-kueski-800">Próxima promoción</p>
-        <p className="mt-1 text-sm font-semibold text-slate-800">
-          {NEXT_PROMO_SUGGESTION.titulo}
-        </p>
-        <p className="text-xs text-slate-500">
-          {NEXT_PROMO_SUGGESTION.tienda} · {NEXT_PROMO_SUGGESTION.vigencia}
-        </p>
-      </Card>
-
-      <Button
-        fullWidth
-        onClick={() => {
-          resetAmazonFlow();
-          navigate("dashboard");
-        }}
-      >
+      <Button fullWidth onClick={resetAmazonFlow}>
         Volver al inicio
       </Button>
-    </div>
-  );
-}
-
-function SuccessIcon() {
-  return (
-    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-kueski-500 text-xl text-white">
-      ✓
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { useApp } from "../context/AppContext";
+import { getAmazonSession, getCostcoSession } from "../extension/session";
+import { isSessionValid } from "../extension/messages";
 
 // ─── Supabase client (misma instancia que data.ts) ────────────────────────────
 const supabase = createClient(
@@ -11,7 +13,16 @@ const supabase = createClient(
 );
 
 export function LoginScreen() {
-  const { state, requestVerification, verifyCode, cancelVerification, setPendingUser } = useApp();
+  const { 
+    state, 
+    requestVerification, 
+    verifyCode, 
+    cancelVerification, 
+    setPendingUser,
+    amazonVisitFromTab, // Para forzar redirección de Amazon
+    costcoVisitFromTab  // Para forzar redirección de Costco
+  } = useApp();
+  
   const [correo, setCorreo] = useState("usuario@email.com");
   const [codeInput, setCodeInput] = useState("");
 
@@ -62,9 +73,136 @@ export function LoginScreen() {
     }
   };
 
-  // ─── Paso 2: verificar el código OTP ─────────────────────────────────────
-  const handleVerify = () => {
+  // ─── Paso 2: verificar el código OTP e interceptar sesión ────────────────
+  const handleVerify = async () => {
+    let sessionToApply = null;
+    let detectedStore: "amazon" | "costco" | null = null;
+
+    if (typeof chrome !== "undefined" && chrome.runtime && chrome.tabs) {
+      try {
+        // 1. Buscamos en memoria del Service Worker primero (Amazon o Costco)
+        const amazonSession = await getAmazonSession();
+        if (isSessionValid(amazonSession) && amazonSession) {
+          sessionToApply = amazonSession;
+          detectedStore = "amazon";
+        } else {
+          const costcoSession = await getCostcoSession();
+          if (isSessionValid(costcoSession) && costcoSession) {
+            sessionToApply = costcoSession;
+            detectedStore = "costco";
+          }
+        }
+
+        // 2. FALLBACK INTELIGENTE: Consultamos la pestaña activa si no hay nada en memoria
+        if (!sessionToApply) {
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          
+          if (activeTab && activeTab.url && activeTab.id) {
+            const isAmazon = activeTab.url.includes("amazon.com") || activeTab.url.includes("amazon.com.mx");
+            const isCostco = activeTab.url.includes("costco.com") || activeTab.url.includes("costco.com.mx");
+
+            if (isAmazon || isCostco) {
+              let scrapedPrice = 1299; // Precio base en caso de error
+
+              try {
+                // Inyectamos un script para leer el precio. Pasamos 'isAmazon' como argumento.
+                const injectionResults = await chrome.scripting.executeScript({
+                  target: { tabId: activeTab.id },
+                  args: [isAmazon],
+                  func: (isAmazonContext) => {
+                    if (isAmazonContext) {
+                      // Scraper para Amazon
+                      const selectors = [
+                        ".a-price .a-offscreen", 
+                        "#corePriceDisplay_desktop_feature_div .a-offscreen", 
+                        "#priceblock_ourprice"
+                      ];
+                      for (const sel of selectors) {
+                        const el = document.querySelector(sel);
+                        if (el && el.textContent) {
+                          const text = el.textContent.replace(/[^\d.,]/g, "");
+                          const clean = text.replace(/,/g, ""); 
+                          const val = parseFloat(clean);
+                          if (!isNaN(val) && val > 0) return val;
+                        }
+                      }
+                    } else {
+                      // Scraper para Costco
+                      // Prioridad: Meta tag en el HTML estático
+                      const meta = document.querySelector('meta[property="product:price:amount"]') || 
+                                   document.querySelector('meta[name="product:price:amount"]');
+                      if (meta) {
+                        const val = parseFloat((meta as HTMLMetaElement).content);
+                        if (!isNaN(val) && val > 0) return val;
+                      }
+
+                      // Secundario: DOM renderizado por Spartacus
+                      const selectors = [
+                        "cx-price .value",
+                        "cx-product-price .value",
+                        ".price-value",
+                        "[itemprop='price']"
+                      ];
+                      for (const sel of selectors) {
+                        const el = document.querySelector(sel);
+                        if (el && el.textContent) {
+                          const text = el.textContent.replace(/[^\d.,]/g, "");
+                          const clean = text.replace(/,/g, ""); 
+                          const val = parseFloat(clean);
+                          if (!isNaN(val) && val > 0) return val;
+                        }
+                      }
+                    }
+                    return null;
+                  }
+                });
+                
+                if (injectionResults && injectionResults[0].result) {
+                  scrapedPrice = injectionResults[0].result as number;
+                }
+              } catch (scriptError) {
+                console.warn("No se pudo inyectar el script de precio:", scriptError);
+              }
+
+              // Limpiamos el título de la pestaña según la tienda
+              let cleanTitle = activeTab.title || "Producto detectado";
+              if (isAmazon) {
+                cleanTitle = cleanTitle.replace(/Amazon\.com\.mx.*:|Amazon\.com.*:/i, "").trim();
+              } else if (isCostco) {
+                cleanTitle = cleanTitle.replace(/\s*\|\s*Costco.*$/i, "").trim();
+              }
+
+              sessionToApply = {
+                detected: true,
+                product: { 
+                  nombre: cleanTitle, 
+                  precio: scrapedPrice, 
+                  url: activeTab.url 
+                },
+                url: activeTab.url,
+                hostname: new URL(activeTab.url).hostname,
+                at: Date.now()
+              };
+              detectedStore = isAmazon ? "amazon" : "costco";
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error al interceptar sesión:", e);
+      }
+    }
+
+    // 3. Verificamos el código (esto cambia el estado del usuario)
     verifyCode(codeInput.trim());
+
+    // 4. Redirigimos inmediatamente al StoreDetection correspondiente
+    if (sessionToApply) {
+      if (detectedStore === "amazon" && amazonVisitFromTab) {
+        amazonVisitFromTab(sessionToApply.product);
+      } else if (detectedStore === "costco" && costcoVisitFromTab) {
+        costcoVisitFromTab(sessionToApply.product);
+      }
+    }
   };
 
   const handleBack = () => {
@@ -129,7 +267,7 @@ export function LoginScreen() {
       <div>
         <h1 className="text-lg font-bold text-slate-900">Iniciar sesión</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Accede a tu cuenta Kueski para financiar compras en Amazon.
+          Accede a tu cuenta Kueski para financiar compras.
         </p>
       </div>
 

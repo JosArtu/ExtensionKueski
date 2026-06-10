@@ -7,7 +7,7 @@ import type { ScreenId } from "../../types";
 const screenTitles: Partial<Record<ScreenId, string>> = {
   login: "Kueski Pay",
   dashboard: "Inicio",
-  storeDetection: "Amazon detectada",
+  storeDetection: "Tienda detectada",
   activeOffer: "Oferta activa",
   simulation: "Simular pagos",
   eligibility: "Elegibilidad",

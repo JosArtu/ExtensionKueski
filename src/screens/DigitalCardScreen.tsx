@@ -2,12 +2,14 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { Button } from "../components/ui/Button";
 import { useApp } from "../context/AppContext";
-import { CARD_MOCK } from "../mock/data";
+import { CARD_MOCK, AMAZON_STORE, COSTCO_STORE } from "../mock/data";
 
 export function DigitalCardScreen() {
   const { state, revealCard, completeCheckout, navigate, updateUserCredit } = useApp();
   const [localRevealed, setLocalRevealed] = useState(state.cardRevealed);
-
+  
+  // Logic to pick store
+  const store = state.costcoActive ? COSTCO_STORE : AMAZON_STORE;
   const revealed = localRevealed || state.cardRevealed;
 
   const handleReveal = () => {
@@ -26,17 +28,19 @@ export function DigitalCardScreen() {
       <div>
         <h1 className="text-lg font-bold text-slate-900">Tarjeta digital temporal</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Úsala solo en el checkout de Amazon. Expira en 15 minutos.
+          Úsala solo en el checkout de {store.nombre}. Expira en 15 minutos.
         </p>
       </div>
 
       <motion.div
-        className="relative aspect-[1.586/1] w-full overflow-hidden rounded-2xl gradient-kueski p-5 text-white shadow-lg"
+        className={`relative aspect-[1.586/1] w-full overflow-hidden rounded-2xl p-5 text-white shadow-lg ${
+          state.costcoActive ? "bg-blue-600" : "gradient-kueski"
+        }`}
         layout
       >
         <div className="flex justify-between text-xs opacity-80">
           <span>Kueski Digital</span>
-          <span>VISA</span>
+          <span>{store.logo}</span>
         </div>
         <div className="mt-8">
           {revealed ? (
@@ -74,7 +78,7 @@ export function DigitalCardScreen() {
       ) : (
         <>
           <p className="text-center text-xs text-slate-500">
-            Copia los datos en el método de pago de Amazon.
+            Copia los datos en el método de pago de {store.nombre}.
           </p>
           <Button fullWidth onClick={handleConfirmCheckout}>
             Confirmar uso en checkout

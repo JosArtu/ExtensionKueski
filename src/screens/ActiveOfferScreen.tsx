@@ -1,13 +1,16 @@
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { useApp } from "../context/AppContext";
-import { AMAZON_STORE, formatMXN } from "../mock/data";
+import { AMAZON_STORE, COSTCO_STORE, formatMXN } from "../mock/data";
 
 export function ActiveOfferScreen() {
   const { state, navigate, dismissOffer, needsSimulation, checkEligibility } =
     useApp();
 
   const activeOffer = state.activeOffer;
+  
+  // Select the store dynamically based on active state
+  const store = state.costcoActive ? COSTCO_STORE : AMAZON_STORE;
 
   const goNext = () => {
     if (needsSimulation) {
@@ -19,8 +22,8 @@ export function ActiveOfferScreen() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl gradient-kueski p-4 text-white">
-        <p className="text-xs opacity-90">{AMAZON_STORE.nombre}</p>
+      <div className={`rounded-2xl p-4 text-white ${state.costcoActive ? "bg-blue-600" : "gradient-kueski"}`}>
+        <p className="text-xs opacity-90">{store.nombre}</p>
         <h1 className="text-xl font-bold">
           Hasta {activeOffer.mesesSinInteres} meses sin intereses
         </h1>
@@ -52,13 +55,15 @@ export function ActiveOfferScreen() {
         </dl>
       </Card>
 
-      <p className="text-xs text-slate-500">{state.product.nombre}</p>
+      <p className="text-xs text-slate-500">
+        Aplicar promoción en {store.nombre}
+      </p>
 
       <Button fullWidth onClick={goNext}>
-        {needsSimulation ? "Simular pagos" : "Revisar elegibilidad"}
+        Continuar
       </Button>
       <Button fullWidth variant="ghost" onClick={dismissOffer}>
-        Cerrar oferta
+        Volver
       </Button>
     </div>
   );

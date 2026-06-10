@@ -3,12 +3,12 @@ import { scrapeAmazonProduct, isProductPage } from "./scrape";
 
 const BANNER_ID = "kueski-amazon-banner";
 
-let lastUrl = "";
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let domObserver: MutationObserver | null = null;
 let tornDown = false;
 
-/** Chrome throws when extension was reloaded but this tab still has the old content script. */
+console.log("[Kueski Amazon] 🚀 Script loaded on", location.hostname, location.pathname);
+
 function isExtensionContextValid(): boolean {
   try {
     return typeof chrome !== "undefined" && !!chrome.runtime?.id;
@@ -26,54 +26,6 @@ function teardownContentScript() {
   debounceTimer = null;
 }
 
-function reportDetection() {
-  if (!isAmazonHost(location.hostname)) return;
-
-  if (!isExtensionContextValid()) {
-    teardownContentScript();
-    return;
-  }
-
-  const product = scrapeAmazonProduct();
-  try {
-    chrome.runtime.sendMessage(
-      {
-        type: "AMAZON_DETECTED",
-        product,
-        url: location.href,
-        hostname: location.hostname,
-      },
-      () => {
-        const err = chrome.runtime.lastError;
-        if (
-          err &&
-          (err.message?.includes("invalidated") || err.message?.includes("Invalid"))
-        ) {
-          teardownContentScript();
-        }
-      }
-    );
-  } catch {
-    teardownContentScript();
-  }
-}
-
-function scheduleDetection() {
-  if (tornDown || !isExtensionContextValid()) {
-    teardownContentScript();
-    return;
-  }
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    if (tornDown) return;
-    if (location.href !== lastUrl) {
-      lastUrl = location.href;
-    }
-    reportDetection();
-    if (isProductPage()) showBanner();
-  }, 400);
-}
-
 function showBanner() {
   if (document.getElementById(BANNER_ID)) return;
   if (sessionStorage.getItem("kueski-banner-dismissed") === "1") return;
@@ -84,22 +36,12 @@ function showBanner() {
   banner.setAttribute(
     "style",
     [
-      "position:fixed",
-      "top:16px",
-      "right:16px",
-      "z-index:2147483646",
-      "max-width:300px",
-      "background:linear-gradient(135deg,#4648e8,#3a3cd4)",
-      "border-radius:14px",
-      "font-family:system-ui,sans-serif",
-      "font-size:13px",
-      "box-shadow:0 8px 24px rgba(70,72,232,.35)",
-      "overflow:hidden",
-      "line-height:1.4",
-      "color:#fff",
-      "opacity:0",
-      "transform:translateX(20px)",
-      "transition:opacity 0.3s ease, transform 0.3s ease",
+      "position:fixed", "top:16px", "right:16px", "z-index:2147483646",
+      "max-width:300px", "background:linear-gradient(135deg,#4648e8,#3a3cd4)",
+      "border-radius:14px", "font-family:system-ui,sans-serif", "font-size:13px",
+      "box-shadow:0 8px 24px rgba(70,72,232,.35)", "overflow:hidden",
+      "line-height:1.4", "color:#fff", "opacity:0", "transform:translateX(20px)",
+      "transition:opacity 0.3s ease, transform 0.3s ease"
     ].join(";")
   );
 
@@ -118,32 +60,59 @@ function showBanner() {
   `;
 
   document.body.appendChild(banner);
-  // Trigger animation on next frame
   requestAnimationFrame(() => {
     banner.style.opacity = "1";
     banner.style.transform = "translateX(0)";
   });
+  
   document.getElementById("kueski-banner-close")?.addEventListener("click", () => {
     sessionStorage.setItem("kueski-banner-dismissed", "1");
     banner.remove();
   });
 }
 
-
-
-function init() {
-  if (!isAmazonHost(location.hostname)) return;
-
-  if (!isExtensionContextValid()) {
+function reportDetection() {
+  if (!isAmazonHost(location.hostname) || !isExtensionContextValid()) {
     teardownContentScript();
     return;
   }
 
-  lastUrl = location.href;
-  reportDetection();
-  if (isProductPage()) showBanner();
+  const product = scrapeAmazonProduct();
+  
+  if (isProductPage()) {
+    showBanner();
+  }
 
-  window.addEventListener("pageshow", scheduleDetection);
+  try {
+    chrome.runtime.sendMessage({
+      type: "AMAZON_DETECTED",
+      product,
+      url: location.href,
+      hostname: location.hostname,
+    });
+  } catch (e) {
+    console.warn("[Kueski Amazon] Message error:", e);
+    teardownContentScript();
+  }
+}
+
+function scheduleDetection() {
+  if (tornDown || !isExtensionContextValid()) {
+    teardownContentScript();
+    return;
+  }
+  
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    reportDetection();
+  }, 500);
+}
+
+function init() {
+  if (!isAmazonHost(location.hostname)) return;
+  
+  reportDetection();
+
   domObserver = new MutationObserver(scheduleDetection);
   domObserver.observe(document.documentElement, {
     childList: true,
