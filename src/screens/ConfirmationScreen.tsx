@@ -9,7 +9,7 @@ function SuccessIcon() {
 }
 
 export function ConfirmationScreen() {
-  const { state, resetAmazonFlow } = useApp();
+  const { state, returnToDashboard } = useApp();
   const tx = state.transaction!;
 
   return (
@@ -51,7 +51,7 @@ export function ConfirmationScreen() {
         </p>
       </Card>
 
-      <Button fullWidth onClick={resetAmazonFlow}>
+      <Button fullWidth onClick={returnToDashboard}>
         Volver al inicio
       </Button>
     </div>

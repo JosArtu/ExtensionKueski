@@ -5,14 +5,10 @@ import { AMAZON_STORE, COSTCO_STORE, formatMXN } from "../mock/data";
 
 export function StoreDetectionScreen() {
   const { state, dismissStoreDetection, navigate } = useApp();
-  const { product, costcoActive, amazonActive } = state;
+  const { product, costcoActive } = state;
 
   // Select store based on the active state
   const store = costcoActive ? COSTCO_STORE : AMAZON_STORE;
-
-  // #region agent log
-  fetch('http://127.0.0.1:7886/ingest/5ef5ffa8-2bf4-4ad7-84e0-911796d4af42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d50a65'},body:JSON.stringify({sessionId:'d50a65',runId:'post-fix',location:'StoreDetectionScreen.tsx:render',message:'store display',data:{costcoActive,amazonActive,storeNombre:store.nombre,productNombre:product.nombre},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
 
   return (
     <div className="space-y-4">

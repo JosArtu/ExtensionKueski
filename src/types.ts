@@ -107,6 +107,7 @@ export type AppAction =
   | { type: "COMPLETE_CHECKOUT"; transaction: Transaction }
   | { type: "UPDATE_PREFERENCES"; preferences: Partial<Preferences> }
   | { type: "RESET_AMAZON_FLOW" }
+  | { type: "RETURN_TO_DASHBOARD" }
   | { type: "SET_PENDING_USER"; user: UserProfile }
   | { type: "UPDATE_USER_CREDIT"; newCredit: number }
   | { type: "SET_ACTIVE_OFFER"; offer: Offer };

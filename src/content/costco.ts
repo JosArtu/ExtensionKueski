@@ -110,6 +110,9 @@ function init() {
   reportDetection();
 
   watchPageNavigation(scheduleDetection);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") scheduleDetection();
+  });
   domObserver = new MutationObserver(scheduleDetection);
   domObserver.observe(document.documentElement, {
     childList: true,

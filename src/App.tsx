@@ -1,5 +1,4 @@
-import { AmazonBootstrap } from "./components/AmazonBootstrap";
-import { CostcoBootstrap } from "./components/CostcoBootstrap";
+import { StoreBootstrap } from "./components/StoreBootstrap";
 import { FlowDevPanel } from "./components/layout/FlowDevPanel";
 import { isExtensionContext } from "./extension/session";
 import { PopupShell } from "./components/layout/PopupShell";
@@ -79,8 +78,7 @@ function ScreenRouter() {
 export default function App() {
   return (
     <AppProvider>
-      <AmazonBootstrap />
-      <CostcoBootstrap />
+      <StoreBootstrap />
       <ScreenRouter />
       {!isExtensionContext() && <FlowDevPanel />}
     </AppProvider>

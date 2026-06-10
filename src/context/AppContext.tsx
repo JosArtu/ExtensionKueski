@@ -14,7 +14,11 @@ import {
   HIGH_PRICE_PRODUCT,
   updateUserCredit,
 } from "../mock/data";
-import { clearAmazonSession, isExtensionContext } from "../extension/session";
+import {
+  clearAmazonSession,
+  clearCostcoSession,
+  isExtensionContext,
+} from "../extension/session";
 import type {
   AmazonProduct,
   AppAction,
@@ -144,9 +148,6 @@ function reducer(state: AppState, action: AppAction): AppState {
     case "AMAZON_VISIT_FROM_TAB": {
       const amount =
         action.product.precio > 0 ? action.product.precio : AMAZON_PRODUCT.precio;
-      // #region agent log
-      fetch('http://127.0.0.1:7886/ingest/5ef5ffa8-2bf4-4ad7-84e0-911796d4af42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d50a65'},body:JSON.stringify({sessionId:'d50a65',runId:'post-fix',location:'AppContext.tsx:AMAZON_VISIT_FROM_TAB',message:'reducer apply',data:{before:{amazonActive:state.amazonActive,costcoActive:state.costcoActive},after:{amazonActive:true,costcoActive:false},productNombre:action.product.nombre},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       return {
         ...state,
         amazonActive: true,
@@ -182,9 +183,6 @@ function reducer(state: AppState, action: AppAction): AppState {
     case "COSTCO_VISIT_FROM_TAB": {
       const amount =
         action.product.precio > 0 ? action.product.precio : AMAZON_PRODUCT.precio;
-      // #region agent log
-      fetch('http://127.0.0.1:7886/ingest/5ef5ffa8-2bf4-4ad7-84e0-911796d4af42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d50a65'},body:JSON.stringify({sessionId:'d50a65',location:'AppContext.tsx:COSTCO_VISIT_FROM_TAB',message:'reducer before',data:{amazonActive:state.amazonActive,costcoActive:state.costcoActive,screen:state.screen,productNombre:action.product.nombre},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       return {
         ...state,
         costcoActive: true,
@@ -272,6 +270,22 @@ function reducer(state: AppState, action: AppAction): AppState {
         purchaseAmount: AMAZON_PRODUCT.precio,
         screen: "dashboard",
       };
+    case "RETURN_TO_DASHBOARD":
+      return {
+        ...state,
+        amazonActive: false,
+        costcoActive: false,
+        storeDetectionDismissed: true,
+        offerDismissed: false,
+        eligibility: "pending",
+        simulation: null,
+        simulationViewed: false,
+        cardRevealed: false,
+        transaction: null,
+        product: AMAZON_PRODUCT,
+        purchaseAmount: AMAZON_PRODUCT.precio,
+        screen: "dashboard",
+      };
     default:
       return state;
   }
@@ -300,6 +314,7 @@ interface AppContextValue {
   updatePreferences: (prefs: Partial<Preferences>) => void;
   updateUserCredit: (newCredit: number) => void;
   resetAmazonFlow: () => void;
+  returnToDashboard: () => void;
   needsSimulation: boolean;
 }
 
@@ -407,6 +422,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       resetAmazonFlow: () => {
         dispatch({ type: "RESET_AMAZON_FLOW" });
         if (isExtensionContext()) void clearAmazonSession();
+      },
+      returnToDashboard: () => {
+        dispatch({ type: "RETURN_TO_DASHBOARD" });
+        if (isExtensionContext()) {
+          void clearAmazonSession();
+          void clearCostcoSession();
+        }
       },
       needsSimulation,
     }),

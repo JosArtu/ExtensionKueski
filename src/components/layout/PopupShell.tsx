@@ -70,22 +70,22 @@ export function PopupShell({
         )}
       </header>
 
-      <AnimatePresence mode="wait">
-        <motion.main
-          key={screen}
-          initial={{ opacity: 0, x: 12 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -12 }}
-          transition={{ duration: 0.2 }}
-          className={
-            isExtension
-              ? "min-h-0 flex-1 overflow-y-auto p-4"
-              : "max-h-[min(640px,75vh)] overflow-y-auto p-4"
-          }
-        >
-          {children}
-        </motion.main>
-      </AnimatePresence>
+      {isExtension ? (
+        <main className="min-h-0 flex-1 overflow-y-auto p-4">{children}</main>
+      ) : (
+        <AnimatePresence initial={false}>
+          <motion.main
+            key={screen}
+            initial={{ opacity: 0, x: 8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="max-h-[min(640px,75vh)] overflow-y-auto p-4"
+          >
+            {children}
+          </motion.main>
+        </AnimatePresence>
+      )}
     </div>
   );
 
