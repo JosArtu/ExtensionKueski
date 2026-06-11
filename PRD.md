@@ -11,16 +11,17 @@
 
 | Layer | Role |
 |-------|------|
-| **Extension UI (popup)** | 8-screen flow: login, dashboard, store detection, offers, eligibility, digital card, confirmation, preferences |
-| **Content / floating widget** | Detects compatible stores, surfaces payment options on merchant pages |
-| **Backend API** | User, store, product, loan, offer, simulation, event, and preference management |
-| **Database** | PostgreSQL persistence for all domain entities |
+| **Extension UI (popup)** | 9-screen flow: login, dashboard, store detection, offers, simulation, eligibility, digital card, confirmation, preferences |
+| **Content scripts** | Amazon and Costco detection, DOM scraping, on-page banners |
+| **Background service worker** | Session storage bridging content scripts and popup |
+| **Supabase client** | Direct queries for users, stores, products, offers; credit updates on checkout |
+| **Database** | PostgreSQL (hosted on Supabase) |
 
 **Tech stack:**
 
-- **Frontend:** React, TypeScript, Tailwind CSS, Chrome Extension API (Manifest V3), Motion (transitions / card reveal)
-- **Backend:** Node.js, Express
-- **Database:** PostgreSQL
+- **Frontend:** React 18, TypeScript, Tailwind CSS, Chrome Extension API (Manifest V3), Framer Motion
+- **Data:** Supabase (`@supabase/supabase-js`)
+- **Build:** Vite 7
 
 ## 2. Target Audience & Personas
 
@@ -56,48 +57,51 @@
 
 1. **Account link / login** — Connect Kueski account from popup (Screen 1)
 2. **Credit dashboard** — Summary, promos, compatible stores, digital card status (Screen 2)
-3. **Store detection** — Notify when entering Amazon, AliExpress, or compatible domains (Screen 3 + content script)
+3. **Store detection** — Notify when entering Amazon or Costco (live); AliExpress and Mercado Libre shown as upcoming (Screen 3 + content script)
 4. **Active offers** — Short promotions with financeable amount, interest, validity (Screen 4)
 5. **Eligibility check** — Qualification status, available credit, payment conditions (Screen 5)
 6. **Digital card** — Temporary virtual card with reveal for checkout (Screen 6)
 7. **Confirmation / tracking** — Success state, transaction summary, next promos (Screen 7)
 8. **Preferences** — Notifications, alert intensity, privacy (Screen 8)
-9. **Floating widget** — Injects UI on compatible store product pages
-10. **Payment simulator** — Calculates installments from scraped product price
-11. **Frictionless checkout** — Creates loan record and guides user through Kueski payment flow
+9. **On-page banners** — Dismissible Kueski banner on Amazon and Costco product pages
+10. **Payment simulator** — Calculates installments from scraped product price and active offer
+11. **Frictionless checkout** — Mock digital card; updates user credit in Supabase on confirmation
 
-### Backend
+### Data layer (Supabase)
 
-12. **REST API** — CRUD and query endpoints for users, stores, products, loans, offers, simulations, events, preferences
-13. **Store compatibility** — Domain lookup via `/api/tiendas`
-14. **Usage telemetry** — Event logging for analytics and flow traceability
+12. **Store catalog** — `tienda` table with `compatibilidad_kueski` flag
+13. **Offers & promotions** — `oferta` table (`tipo` 1 = financing, 2 = dashboard promos)
+14. **User credit** — `usuario.limite_de_credito` read on login, updated after purchase
+15. **Fallback mocks** — In-memory defaults when Supabase is unavailable
+
+> **Note:** A separate Node.js REST API was planned in v1 specs but is **not implemented**. The extension queries Supabase directly from `src/mock/data.ts`.
 
 ## 4. Extension Screens & Requirements
 
 ### Screen 1 — Login / Link account
 
-- Sign in and link account actions
-- Calls `POST /api/usuarios` on registration; session ties to `GET /api/usuarios/{id}`
+- Sign in with email; demo 6-digit verification code shown in popup
+- On success, user profile loaded from Supabase `usuario` (or `createUser()` fallback)
 
 ### Screen 2 — Main dashboard
 
-- Credit summary (e.g., available credit from user / loan data)
-- Active promotions (`GET /api/ofertas`)
-- Compatible stores (`GET /api/tiendas`)
-- Digital card status
+- Credit summary from `usuario.limite_de_credito`
+- Active promotions from `oferta` where `tipo = 2`
+- Compatible stores from `tienda` where `compatibilidad_kueski = true`
+- Digital card status; shortcuts to simulate Amazon/Costco flows in dev
 - Navigation to preferences and financing flow
 
 ### Screen 3 — Store detection
 
-- Banner when visiting a compatible domain (Amazon, AliExpress, etc.)
-- Triggered after `GET /api/tiendas` confirms compatibility
-- Dismissible; logs `Evento Uso` (store validated)
+- Shown when popup opens on an Amazon or Costco product tab (via `StoreBootstrap` + background session)
+- Displays scraped product name and price; store-specific branding (Amazon orange / Costco blue)
+- Dismissible; returns to dashboard and clears re-detection for that session
 
 ### Screen 4 — Active offer
 
-- Promotion headline (e.g., 3 months without interest)
+- Promotion headline (e.g., 3 months without interest; 12 MSI for premium users)
 - Financeable amount, estimated interest, validity period
-- Data from `GET /api/ofertas` filtered by store / user
+- Data from Supabase `oferta` table via `getActiveOfferForUser(tipo_usuario)`
 
 ### Screen 5 — Eligibility & details
 
@@ -112,14 +116,19 @@
 
 ### Screen 7 — Confirmation / tracking
 
-- Success after `POST /api/prestamos`
-- Transaction summary; suggestion for next promotions
-- Logs checkout-completed event
+- Success after mock checkout completion
+- Transaction summary (store, amount, term, product)
+- Optional next-promo suggestion from Supabase `oferta` (tipo=2)
+
+### Screen 5 — Payment simulation (optional)
+
+- Installment calculator using `calculateSimulation()` and active offer rates
+- Optional step between offer and eligibility when user views simulation
 
 ### Screen 8 — Preferences
 
-- Notification on/off, alert intensity, privacy controls
-- Persisted via `Preferencias Widget` (and/or dedicated preferences endpoint)
+- Notification on/off, alert intensity, privacy controls, dark theme toggle
+- Stored in local React state (not yet persisted to Supabase)
 
 ## 5. User Flows
 
@@ -134,14 +143,16 @@
 7. Checkout completes → **Confirmation / tracking**
 8. User adjusts behavior via **Preferences**
 
-### Flow B — On-page widget (original e-commerce flow)
+### Flow B — On-page detection (implemented subset)
 
-1. User navigates to a product page on a supported domain (e.g., `amazon.com.mx`)
-2. Extension content script parses DOM → `Product Name`, `Price`, `URL`
-3. Extension calls `GET /api/tiendas` to verify domain compatibility
-4. If compatible, floating widget appears on page
-5. User clicks **Simulate Payment** → backend creates / returns simulation
-6. User clicks **Pay with Kueski** → `POST /api/prestamos` → confirmation
+1. User navigates to a product page on Amazon or Costco (e.g., `amazon.com.mx`)
+2. Content script parses DOM → product name, price, URL (`src/content/scrape.ts`)
+3. Content script shows dismissible banner and sends `AMAZON_DETECTED` / `COSTCO_DETECTED` to background
+4. Background stores session in `chrome.storage.local` (30 min TTL)
+5. User opens popup → `StoreBootstrap` reads session → **Store detection** screen
+6. User continues financing flow in popup (offer → eligibility → digital card → confirmation)
+
+> Full floating widget with inline simulate/pay buttons on the merchant page is **not implemented** in the current prototype.
 
 ## 6. Interface & UX Requirements
 
@@ -157,7 +168,8 @@
 ## 7. Visual Design Direction
 
 - Clean, minimal fintech aesthetic
-- Brand accent: emerald / teal (gradients acceptable, restrained)
+- Brand accent: Kueski purple `#4648e8` (Tailwind `kueski-500`; gradients on banners and CTAs)
+- Store-specific accents on detection screen: Amazon (orange), Costco (blue)
 - Clear typography scale; prominent numeric credit display
 - Smooth screen transitions; card reveal on digital card screen
 
@@ -261,6 +273,8 @@ Relational model (PostgreSQL). Expand column definitions as migrations are writt
 
 ## 9. API Endpoints Reference
 
+> **Status:** Not implemented. The extension uses the Supabase client directly. This section documents the original REST design for a future backend service.
+
 Base URL: `/api` (e.g., `http://localhost:3000/api`)
 
 ### Usuarios
@@ -318,74 +332,72 @@ Base URL: `/api` (e.g., `http://localhost:3000/api`)
 
 ## 10. Technical Implementation Plan
 
-### Frontend (extension + popup app)
+### Frontend (extension + popup app) — **implemented**
 
 ```
-extension/
-  manifest.json          # Manifest V3
-  popup/                   # React popup (~360–400px)
-    src/
-      screens/             # Screens 1–8
-      components/          # Shared UI
-      services/api.ts      # REST client
-  content/                 # Content scripts + floating widget
-  background/              # Service worker (store detection, API calls)
-```
-
-- Popup: `currentScreen` state or router; fetch dashboard data from API
-- Content script: DOM scrape → `POST /productos` → widget inject
-- Shared API module with base URL from env
-
-### Backend
-
-```
-server/
+ExtensionKueski/
+  public/manifest.json
+  popup.html
   src/
-    routes/                # Express routers per resource
-    controllers/
-    models/                # DB access layer
-    db/                    # Pool, migrations, seeds
-  migrations/
+    App.tsx                  # Screen router
+    screens/                 # Screens 1–9
+    components/
+      StoreBootstrap.tsx     # Tab session → store detection
+      layout/                # PopupShell, FlowDevPanel
+    content/
+      amazon.ts, costco.ts   # Per-store content scripts
+      banner.ts, scrape.ts   # Shared helpers
+    background/
+      service-worker.ts      # Session persistence
+    extension/
+      messages.ts, session.ts
+    context/AppContext.tsx   # Reducer + actions
+    mock/data.ts             # Supabase client + fallbacks
 ```
 
-- Express + `pg` (or ORM e.g. Prisma / Drizzle)
-- CORS enabled for extension origin
-- Seed data: compatible tiendas (Amazon, AliExpress), sample ofertas, demo usuario
+- Popup: `AppContext` reducer drives `screen` navigation
+- Content scripts: bundled to `dist/content.js` and `dist/costco.js`
+- `StoreBootstrap`: on popup open, queries active tab + background session
 
-### Environment variables (planned)
+### Data layer (Supabase) — **implemented**
 
-| Variable | Purpose |
-|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `PORT` | API server port (default 3000) |
-| `CORS_ORIGIN` | Allowed extension / dev frontend origin |
+- `@supabase/supabase-js` client in `src/mock/data.ts`
+- Tables: `usuario`, `tienda`, `producto`, `oferta`
+- Seed scripts documented in [SUPABASE_SETUP.md](./SUPABASE_SETUP.md)
+- Fallback constants when queries fail or return empty
+
+### Backend REST API — **not implemented**
+
+A Node.js + Express layer was originally specified but superseded by direct Supabase access. Section 9 endpoint reference remains as a design artifact for a future service layer.
 
 ## 11. Acceptance Criteria (v1)
 
 ### Frontend
 
-- [ ] All 8 popup screens implemented and reachable
-- [ ] Popup width within 360–400px target
-- [ ] Floating widget on compatible store pages (dev / stub domain)
-- [ ] Store detection and offer flows call backend (or mock server)
-- [ ] Digital card reveal interaction
-- [ ] Preferences UI wired to API when available
+- [x] All 9 popup screens implemented and reachable
+- [x] Popup width within 360–400px target
+- [x] On-page banners on Amazon and Costco product pages
+- [ ] Full floating widget on merchant pages (banners only in prototype)
+- [x] Store detection via content script + background session
+- [x] Digital card reveal interaction
+- [x] Preferences UI (local state; not persisted to Supabase)
+- [x] Amazon and Costco content scripts with shared scrape/banner modules
 
-### Backend
+### Data layer (Supabase)
 
-- [ ] PostgreSQL schema migrated for all core tables
-- [ ] `GET /api/tiendas` returns compatible domains
-- [ ] `GET /api/ofertas` returns active promotions
-- [ ] `GET /api/usuarios/{id}` returns user + credit summary
-- [ ] `POST /api/prestamos` creates loan record
-- [ ] `POST /api/simulaciones` returns installment breakdown
-- [ ] Seed script for demo data
+- [x] Core tables: `usuario`, `tienda`, `producto`, `oferta`
+- [x] Compatible stores loaded from `tienda.compatibilidad_kueski`
+- [x] Active offers and dashboard promotions from `oferta`
+- [x] User credit read on login; updated via `updateUserCredit()` after checkout
+- [x] Seed SQL documented in SUPABASE_SETUP.md
+- [ ] Separate REST API endpoints (Section 9 — not built)
 
 ### Integration
 
-- [ ] Extension verifies store via `/api/tiendas` before showing widget / banner
-- [ ] Checkout flow persists loan and logs usage event
-- [ ] Dashboard reads live (or seeded) API data
+- [x] Content script → background → popup session pipeline
+- [x] Checkout updates user credit in Supabase (with mock fallback)
+- [x] Dashboard reads live Supabase data (with fallbacks)
+- [ ] Usage event logging to database
 
 ## 12. Out of Scope (What NOT to build)
 
@@ -398,9 +410,18 @@ The team **will** build the extension UI, REST API, and PostgreSQL persistence. 
 
 ## 13. Documentation & Next Steps
 
-1. Scaffold monorepo or `extension/` + `server/` folders
-2. Define DB migrations from Section 8
-3. Implement core API routes (Section 9)
-4. Build popup screens consuming API
-5. Add content script + floating widget
-6. Seed demo data and document local run instructions in README
+**Completed:**
+
+1. Extension popup with 9 screens and full financing flow
+2. Amazon + Costco content scripts, banners, and session bridge
+3. Supabase integration with documented seed data
+4. README, FLOWS, and SUPABASE_SETUP documentation
+
+**Remaining (optional / future):**
+
+1. Full floating widget on merchant pages (Flow B complete)
+2. AliExpress and Mercado Libre live detection
+3. Node.js REST API layer (if separating data access from extension)
+4. Persist preferences and usage events to Supabase
+5. Environment-based Supabase credentials (no hardcoded keys in builds)
+6. Chrome Web Store packaging
